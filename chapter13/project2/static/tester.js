@@ -1,37 +1,54 @@
 document.addEventListener("DOMContentLoaded", function() {
-    
+
     const myForm = document.querySelector("#stockForm");
     const stockSym = document.querySelector("#symbol");
     const msg = document.querySelector("#notifier");
+    const companyDisplay = document.querySelector("#companyJson");
 
-    //const url = "https://guarded-sands-59956.herokuapp.com/http-tester.php";
-    //const url = "http://www.randyconnolly.com/funwebdev/3rd/http-tester.php";
-    const url = "/" + stockSym.value;   
-    console.log(url);
-
+    // POST/PUT/DELETE buttons
     document.querySelector("#btnInsert").addEventListener('click', postData );
     document.querySelector("#btnUpdate").addEventListener('click', putData );
     document.querySelector("#btnDelete").addEventListener('click', deleteData );
 
-    async function  postData(e) {
+    // GET company on page load or when symbol changes
+    stockSym.addEventListener('change', () => getCompany(stockSym.value));
+    getCompany(stockSym.value);
+
+    async function getCompany(symbol) {
+        try {
+            const resp = await fetch(`/api/companies/${symbol}`);
+            if (!resp.ok) {
+                companyDisplay.textContent = "Company not found";
+                return;
+            }
+            const data = await resp.json();
+            companyDisplay.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+            companyDisplay.textContent = "Error fetching company";
+        }
+    }
+
+    async function postData(e) {
         e.preventDefault();
-        const data = await fetchData(url,'POST');
-        msg.textContent = data.message;
+        const data = await fetchData("/api/companies", 'POST'); 
+        msg.textContent = `Inserted company: ${data.symbol} - ${data.company}`;
+        getCompany(data.symbol);
     }
 
     async function putData(e) {
         e.preventDefault();
-        const data = await fetchData(url,'PUT');
-        msg.textContent = data.message;        
+        const data = await fetchData("/api/companies/" + stockSym.value, 'PUT'); 
+        msg.textContent = data ? `Updated company: ${data.symbol} - ${data.company}` : "Company not found";
+        getCompany(stockSym.value);
     }
-    
+
     async function deleteData(e) {
         e.preventDefault();
-        const data = await fetchData(url,'DELETE');
-        msg.textContent = data.message; 
-    }  
-    
-    // make a GET/PUT/POST/DELETE request using fetch
+        const data = await fetchData("/api/companies/" + stockSym.value, 'DELETE'); 
+        msg.textContent = data ? `Deleted company: ${data.symbol} - ${data.company}` : "Company not found";
+        companyDisplay.textContent = "Company deleted";
+    }
+
     async function fetchData(url, method) {
         try {
             let formData = new FormData(myForm);
@@ -39,23 +56,20 @@ document.addEventListener("DOMContentLoaded", function() {
             for (let pair of formData) {
                 encData.append(pair[0], pair[1]);
             }
-    
+
             const options = {
                 method: method,
-                mode: 'cors',         
-                body: encData           
+                mode: 'cors',
             };
 
+            if (method === 'POST' || method === 'PUT') {
+                options.body = encData;
+            }
+
             const resp = await fetch(url, options);
-            const data = await resp.json();    
-            return data;
-        }
-        catch (err) {
-            //alert('fetch error err=' + err);
+            return await resp.json();
+        } catch (err) {
             console.log('fetch error err=' + err);
         }
     }
 });
-
-
-
